@@ -7,47 +7,49 @@ mp_face_mesh = mp.solutions.face_mesh
 def extract_features(video_path):
 
     cap = cv2.VideoCapture(video_path)
-
     features = []
 
-    with mp_face_mesh.FaceMesh(
-        static_image_mode=False,
-        max_num_faces=1,
-        refine_landmarks=True
-    ) as face_mesh:
+    try:
+        if not cap.isOpened():
+            return np.empty((0, 468, 2), dtype=np.float32)
 
-        while True:
+        with mp_face_mesh.FaceMesh(
+            static_image_mode=False,
+            max_num_faces=1,
+            refine_landmarks=False
+        ) as face_mesh:
 
-            success, frame = cap.read()
+            while True:
 
-            if not success:
-                break
+                success, frame = cap.read()
 
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                # End of file or corrupted/unreadable frame. Stop cleanly and
+                # return the landmarks collected from previous valid frames.
+                if not success or frame is None:
+                    break
 
-            results = face_mesh.process(rgb)
+                try:
+                    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    results = face_mesh.process(rgb)
+                except cv2.error:
+                    continue
 
-            if results.multi_face_landmarks:
+                # Skip frames where MediaPipe cannot detect a face.
+                if not results.multi_face_landmarks:
+                    continue
 
                 landmarks = results.multi_face_landmarks[0].landmark
 
-                left_eye = landmarks[33]
-                right_eye = landmarks[263]
-                mouth = landmarks[13]
-                nose = landmarks[1]
-
-                feature_vector = [
-                    left_eye.x,
-                    left_eye.y,
-                    right_eye.x,
-                    right_eye.y,
-                    mouth.y,
-                    nose.x,
-                    nose.y
+                frame_landmarks = [
+                    [landmark.x, landmark.y]
+                    for landmark in landmarks
                 ]
 
-                features.append(feature_vector)
+                features.append(frame_landmarks)
+    finally:
+        cap.release()
 
-    cap.release()
-
-    return np.array(features)
+    # Shape: (num_frames, 468, 2), where each frame stores all FaceMesh
+    # landmarks as normalized [x, y] pairs. This layout can be fed to ST-GCN
+    # as temporal graph input after any model-specific transpose/normalization.
+    return np.asarray(features, dtype=np.float32).reshape(-1, 468, 2)
