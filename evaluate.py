@@ -47,8 +47,8 @@ def calculate_metrics(y_true, y_pred, model_name, class_names):
     Returns metrics dict.
     """
     acc = accuracy_score(y_true, y_pred)
-    precision, recall, f1, _ = precision_recall_fscore_support(y_true, y_pred, average='weighted', zero_division=0)
-    precision_macro, recall_macro, f1_macro, _ = precision_recall_fscore_support(y_true, y_pred, average='macro', zero_division=0)
+    precision, recall, f1, _ = precision_recall_fscore_support(y_true, y_pred, labels=[0, 1, 2, 3], average='weighted', zero_division=0)
+    precision_macro, recall_macro, f1_macro, _ = precision_recall_fscore_support(y_true, y_pred, labels=[0, 1, 2, 3], average='macro', zero_division=0)
     
     print(f"\n==================================================")
     print(f" Performance Report: {model_name}")
@@ -59,8 +59,8 @@ def calculate_metrics(y_true, y_pred, model_name, class_names):
     print(f"Weighted F1 Score:  {f1:.4f}")
     print(f"Macro F1 Score:     {f1_macro:.4f}")
     
-    # Detailed per-class precision, recall, f1
-    p_class, r_class, f1_class, support = precision_recall_fscore_support(y_true, y_pred, average=None, zero_division=0)
+    # Detailed per-class precision, recall, f1 (always returns size 4)
+    p_class, r_class, f1_class, support = precision_recall_fscore_support(y_true, y_pred, labels=[0, 1, 2, 3], average=None, zero_division=0)
     print("\nPer-Class Metrics:")
     print(f"{'Class':<20} | {'Precision':<10} | {'Recall':<10} | {'F1-Score':<10} | {'Support':<10}")
     print("-" * 65)
@@ -80,7 +80,7 @@ def plot_save_confusion_matrix(y_true, y_pred, model_name, class_names, output_p
     """
     Plots the confusion matrix and saves it as an image.
     """
-    cm = confusion_matrix(y_true, y_pred)
+    cm = confusion_matrix(y_true, y_pred, labels=[0, 1, 2, 3])
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_names)
     
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -100,6 +100,7 @@ def main():
     parser.add_argument("--processed_dir", type=str, default="processed", help="Directory of preprocessed landmark files")
     parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
     parser.add_argument("--output_dir", type=str, default="evaluation_results", help="Directory to save plots and reports")
+    parser.add_argument("--limit_samples", type=int, default=None, help="Limit number of dataset samples")
     
     args = parser.parse_args()
     
@@ -119,7 +120,8 @@ def main():
         processed_dir=args.processed_dir,
         batch_size=args.batch_size,
         val_split=0.2,
-        seed=42
+        seed=42,
+        limit_samples=args.limit_samples
     )
     
     # Store performance comparison

@@ -50,7 +50,7 @@ class EngagementDataset(Dataset):
         
         return features, label_tensor
 
-def get_dataloaders(csv_path, processed_dir, batch_size=32, val_split=0.2, max_seq_len=300, seed=42):
+def get_dataloaders(csv_path, processed_dir, batch_size=32, val_split=0.2, max_seq_len=300, seed=42, limit_samples=None):
     """
     Reads the labels CSV and returns stratified train and validation PyTorch DataLoaders.
     """
@@ -59,13 +59,26 @@ def get_dataloaders(csv_path, processed_dir, batch_size=32, val_split=0.2, max_s
         
     df = pd.read_csv(csv_path)
     
+    if limit_samples is not None and limit_samples < len(df):
+        try:
+            df, _ = train_test_split(df, train_size=limit_samples, random_state=seed, stratify=df['label'])
+        except Exception:
+            df = df.sample(n=limit_samples, random_state=seed).reset_index(drop=True)
+    
     # Stratified split to handle severe class imbalance
-    train_df, val_df = train_test_split(
-        df, 
-        test_size=val_split, 
-        random_state=seed, 
-        stratify=df['label']
-    )
+    try:
+        train_df, val_df = train_test_split(
+            df, 
+            test_size=val_split, 
+            random_state=seed, 
+            stratify=df['label']
+        )
+    except Exception:
+        train_df, val_df = train_test_split(
+            df, 
+            test_size=val_split, 
+            random_state=seed
+        )
     
     print(f"Dataset Split Summary:")
     print(f"Total samples: {len(df)}")

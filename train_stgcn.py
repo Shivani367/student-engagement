@@ -81,6 +81,7 @@ def main():
     parser.add_argument("--processed_dir", type=str, default="processed", help="Directory of preprocessed landmark files")
     parser.add_argument("--checkpoint_dir", type=str, default="checkpoints", help="Directory to save model checkpoints")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    parser.add_argument("--limit_samples", type=int, default=None, help="Limit number of dataset samples")
     
     args = parser.parse_args()
     
@@ -104,18 +105,22 @@ def main():
         batch_size=args.batch_size,
         val_split=0.2,
         max_seq_len=300,
-        seed=args.seed
+        seed=args.seed,
+        limit_samples=args.limit_samples
     )
     
     # Extract training labels to compute class weights
     train_labels = train_loader.dataset.labels
     
-    # Calculate class weights for dealing with imbalance
-    class_weights = compute_class_weight(
-        class_weight='balanced',
-        classes=np.unique(train_labels),
-        y=train_labels
-    )
+    # Calculate class weights for dealing with imbalance (always shape [4])
+    counts = np.bincount(train_labels, minlength=4)
+    total = len(train_labels)
+    class_weights = np.zeros(4, dtype=np.float32)
+    for i in range(4):
+        if counts[i] > 0:
+            class_weights[i] = total / (4.0 * counts[i])
+        else:
+            class_weights[i] = 1.0
     class_weights_tensor = torch.tensor(class_weights, dtype=torch.float).to(device)
     print(f"Computed class weights: {class_weights}")
     
