@@ -1,0 +1,9 @@
+venv/
+dataset/
+processed/
+checkpoints/
+
+__pycache__/
+*.pyc
+*.pth
+*.npy
