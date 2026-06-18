@@ -77,6 +77,8 @@ def main():
     parser.add_argument("--checkpoint_dir", type=str, default="checkpoints", help="Directory to save model checkpoints")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--limit_samples", type=int, default=None, help="Limit number of dataset samples")
+    parser.add_argument("--resume", type=str, default=None, help="Path to checkpoint to resume training from")
+    parser.add_argument("--num_workers", type=int, default=0, help="Number of dataloader CPU workers")
     
     args = parser.parse_args()
     
@@ -99,7 +101,8 @@ def main():
         val_split=0.2,
         max_seq_len=300,
         seed=args.seed,
-        limit_samples=args.limit_samples
+        limit_samples=args.limit_samples,
+        num_workers=args.num_workers
     )
     
     # Extract training labels to compute class weights
@@ -134,9 +137,20 @@ def main():
     # Training Loop
     best_val_f1 = 0.0
     best_epoch = 0
+    start_epoch = 1
+    
+    if args.resume and os.path.exists(args.resume):
+        print(f"Loading checkpoint to resume: {args.resume}")
+        checkpoint = torch.load(args.resume, map_location=device)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        start_epoch = checkpoint['epoch'] + 1
+        best_val_f1 = checkpoint.get('val_f1', 0.0)
+        best_epoch = checkpoint['epoch']
+        print(f"Resuming from epoch {start_epoch} (best validation F1 so far: {best_val_f1:.4f})")
     
     print(f"Starting training for {args.epochs} epochs...")
-    for epoch in range(1, args.epochs + 1):
+    for epoch in range(start_epoch, args.epochs + 1):
         print(f"\n--- Epoch {epoch}/{args.epochs} ---")
         
         train_loss, train_acc, train_f1 = train_epoch(model, train_loader, criterion, optimizer, device)

@@ -50,7 +50,7 @@ class EngagementDataset(Dataset):
         
         return features, label_tensor
 
-def get_dataloaders(csv_path, processed_dir, batch_size=32, val_split=0.2, max_seq_len=300, seed=42, limit_samples=None):
+def get_dataloaders(csv_path, processed_dir, batch_size=32, val_split=0.2, max_seq_len=300, seed=42, limit_samples=None, num_workers=0):
     """
     Reads the labels CSV and returns stratified train and validation PyTorch DataLoaders.
     """
@@ -105,12 +105,11 @@ def get_dataloaders(csv_path, processed_dir, batch_size=32, val_split=0.2, max_s
     )
     
     # Create DataLoader instances
-    # Using num_workers=0 to avoid multiprocessing issues in Windows sandboxes
     train_loader = DataLoader(
         train_dataset, 
         batch_size=batch_size, 
         shuffle=True, 
-        num_workers=0,
+        num_workers=num_workers,
         pin_memory=torch.cuda.is_available()
     )
     
@@ -118,7 +117,7 @@ def get_dataloaders(csv_path, processed_dir, batch_size=32, val_split=0.2, max_s
         val_dataset, 
         batch_size=batch_size, 
         shuffle=False, 
-        num_workers=0,
+        num_workers=num_workers,
         pin_memory=torch.cuda.is_available()
     )
     
