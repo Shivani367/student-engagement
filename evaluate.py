@@ -73,8 +73,65 @@ def calculate_metrics(y_true, y_pred, model_name, class_names):
         'precision_weighted': precision,
         'recall_weighted': recall,
         'f1_weighted': f1,
-        'f1_macro': f1_macro
+        'f1_macro': f1_macro,
+        'precision_macro': precision_macro,
+        'recall_macro': recall_macro,
+        'per_class': {
+            'precision': p_class.tolist(),
+            'recall': r_class.tolist(),
+            'f1': f1_class.tolist(),
+            'support': support.tolist()
+        }
     }
+
+def plot_save_learning_curves(history_path, model_name, output_dir):
+    """
+    Plots training and validation loss and accuracy curves from history JSON.
+    """
+    import json
+    if not os.path.exists(history_path):
+        print(f"History file not found at {history_path}. Skipping curves plotting for {model_name}.")
+        return
+        
+    try:
+        with open(history_path, 'r') as f:
+            history = json.load(f)
+            
+        epochs = [h['epoch'] for h in history]
+        train_losses = [h['train_loss'] for h in history]
+        val_losses = [h['val_loss'] for h in history]
+        train_accs = [h['train_acc'] for h in history]
+        val_accs = [h['val_acc'] for h in history]
+        
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+        
+        # Plot Loss
+        ax1.plot(epochs, train_losses, label='Train Loss', marker='o', color='#1f77b4')
+        ax1.plot(epochs, val_losses, label='Val Loss', marker='s', color='#ff7f0e')
+        ax1.set_xlabel('Epoch')
+        ax1.set_ylabel('Loss')
+        ax1.set_title(f'{model_name} - Loss Curve')
+        ax1.legend()
+        ax1.grid(True, linestyle='--', alpha=0.6)
+        
+        # Plot Accuracy
+        ax2.plot(epochs, train_accs, label='Train Acc', marker='o', color='#2ca02c')
+        ax2.plot(epochs, val_accs, label='Val Acc', marker='s', color='#d62728')
+        ax2.set_xlabel('Epoch')
+        ax2.set_ylabel('Accuracy')
+        ax2.set_title(f'{model_name} - Accuracy Curve')
+        ax2.legend()
+        ax2.grid(True, linestyle='--', alpha=0.6)
+        
+        plt.suptitle(f'{model_name} Training History', fontsize=14, fontweight='bold')
+        plt.tight_layout()
+        
+        output_path = Path(output_dir) / f"{model_name.lower().replace('-', '')}_curves.png"
+        plt.savefig(output_path, dpi=300)
+        plt.close()
+        print(f"Saved learning curves plot to {output_path}")
+    except Exception as e:
+        print(f"Failed to plot learning curves for {model_name}: {e}")
 
 def plot_save_confusion_matrix(y_true, y_pred, model_name, class_names, output_path):
     """
@@ -203,7 +260,15 @@ def main():
         except Exception as e:
             print(f"Failed to evaluate Ensemble: {e}")
             
-    # 5. Print final comparative summary
+    # 5. Plot learning curves for individual models
+    if "ST-GCN" in results_summary:
+        plot_save_learning_curves(Path(args.stgcn_ckpt).parent / "stgcn_history.json", "ST-GCN", output_dir)
+    if "Bi-GRU" in results_summary:
+        plot_save_learning_curves(Path(args.bigru_ckpt).parent / "bigru_history.json", "Bi-GRU", output_dir)
+    if "ConvNeXt1D" in results_summary:
+        plot_save_learning_curves(Path(args.convnext_ckpt).parent / "convnext_history.json", "ConvNeXt1D", output_dir)
+        
+    # 6. Print final comparative summary and generate Markdown report
     if len(results_summary) > 0:
         print("\n" + "=" * 60)
         print(f"{'Model Name':<20} | {'Accuracy':<10} | {'Weighted F1':<12} | {'Macro F1':<10}")
@@ -211,6 +276,45 @@ def main():
         for model_name, metrics in results_summary.items():
             print(f"{model_name:<20} | {metrics['accuracy']:.4f}   | {metrics['f1_weighted']:.4f}      | {metrics['f1_macro']:.4f}")
         print("=" * 60 + "\n")
+        
+        # Generate Markdown Report
+        report_path = output_dir / "final_evaluation_report.md"
+        try:
+            with open(report_path, "w") as f:
+                f.write("# Final Evaluation Report - Student Engagement Detection\n\n")
+                f.write("This report summarizes the performance of the ST-GCN, Bi-GRU, ConvNeXt1D, and Ensemble models on the validation split.\n\n")
+                f.write("## 1. Overall Performance Comparison\n\n")
+                f.write("| Model Name | Accuracy | Weighted F1-Score | Macro F1-Score | Weighted Precision | Weighted Recall |\n")
+                f.write("| :--- | :--- | :--- | :--- | :--- | :--- |\n")
+                for model_name, metrics in results_summary.items():
+                    f.write(f"| {model_name} | {metrics['accuracy']:.4f} | {metrics['f1_weighted']:.4f} | {metrics['f1_macro']:.4f} | {metrics['precision_weighted']:.4f} | {metrics['recall_weighted']:.4f} |\n")
+                f.write("\n")
+                
+                f.write("## 2. Detailed Per-Class Performance\n\n")
+                for model_name, metrics in results_summary.items():
+                    if 'per_class' in metrics:
+                        f.write(f"### {model_name}\n\n")
+                        f.write("| Class Name | Precision | Recall | F1-Score | Support |\n")
+                        f.write("| :--- | :--- | :--- | :--- | :--- |\n")
+                        pc = metrics['per_class']
+                        for i, cname in enumerate(class_names):
+                            f.write(f"| {cname} | {pc['precision'][i]:.4f} | {pc['recall'][i]:.4f} | {pc['f1'][i]:.4f} | {int(pc['support'][i])} |\n")
+                        f.write("\n")
+                
+                f.write("## 3. Generated Plots and Visualizations\n\n")
+                f.write("The following plots were generated and saved under the evaluation results directory:\n\n")
+                f.write("### Confusion Matrices\n")
+                for model_name in results_summary.keys():
+                    mn_clean = model_name.lower().split(" ")[0].replace("-", "")
+                    f.write(f"- **{model_name} Confusion Matrix**: `{mn_clean}_cm.png`\n")
+                f.write("\n### Learning Curves\n")
+                for model_name in results_summary.keys():
+                    if model_name != "Ensemble":
+                        mn_clean = model_name.lower().split(" ")[0].replace("-", "")
+                        f.write(f"- **{model_name} Learning Curves**: `{mn_clean}_curves.png` (if training history was available)\n")
+            print(f"Saved final evaluation report to {report_path}")
+        except Exception as e:
+            print(f"Failed to save evaluation report: {e}")
 
 if __name__ == "__main__":
     main()

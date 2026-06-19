@@ -138,7 +138,9 @@ def main():
     best_val_f1 = 0.0
     best_epoch = 0
     start_epoch = 1
+    history = []
     
+    history_path = checkpoint_dir / "convnext_history.json"
     if args.resume and os.path.exists(args.resume):
         print(f"Loading checkpoint to resume: {args.resume}")
         checkpoint = torch.load(args.resume, map_location=device)
@@ -148,6 +150,17 @@ def main():
         best_val_f1 = checkpoint.get('val_f1', 0.0)
         best_epoch = checkpoint['epoch']
         print(f"Resuming from epoch {start_epoch} (best validation F1 so far: {best_val_f1:.4f})")
+        
+        # Load existing history if it exists
+        import json
+        if history_path.exists():
+            try:
+                with open(history_path, 'r') as f:
+                    history = json.load(f)
+                # Keep only history up to the resumed epoch
+                history = [h for h in history if h['epoch'] < start_epoch]
+            except Exception as e:
+                print(f"Warning: Could not load history file: {e}")
     
     print(f"Starting training for {args.epochs} epochs...")
     for epoch in range(start_epoch, args.epochs + 1):
@@ -158,6 +171,25 @@ def main():
         
         print(f"Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.4f} | Train F1: {train_f1:.4f}")
         print(f"Val Loss:   {val_loss:.4f} | Val Acc:   {val_acc:.4f} | Val F1:   {val_f1:.4f}")
+        
+        # Record history
+        history.append({
+            'epoch': epoch,
+            'train_loss': train_loss,
+            'train_acc': train_acc,
+            'train_f1': train_f1,
+            'val_loss': val_loss,
+            'val_acc': val_acc,
+            'val_f1': val_f1
+        })
+        
+        # Save history to JSON file
+        import json
+        try:
+            with open(history_path, 'w') as f:
+                json.dump(history, f, indent=4)
+        except Exception as e:
+            print(f"Warning: Could not save history file: {e}")
         
         # Save best checkpoint based on validation F1 score
         if val_f1 > best_val_f1:
