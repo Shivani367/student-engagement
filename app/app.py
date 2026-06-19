@@ -157,20 +157,44 @@ uploaded_file = st.sidebar.file_uploader(
 )
 
 st.sidebar.markdown("### ⚙️ Model Setup")
-# Paths to checkpoints
-stgcn_ckpt = "checkpoints/stgcn_best.pth"
-bigru_ckpt = "checkpoints/bigru_best.pth"
-convnext_ckpt = "checkpoints/convnext_best.pth"
+# Paths to checkpoints (relative to project root for robustness)
+checkpoint_dir = Path(project_root) / "checkpoints"
+
+def resolve_checkpoint(name):
+    # Try best first, then final
+    best_path = checkpoint_dir / f"{name}_best.pth"
+    final_path = checkpoint_dir / f"{name}_final.pth"
+    
+    if best_path.exists():
+        return str(best_path), f"{name}_best.pth"
+    elif final_path.exists():
+        return str(final_path), f"{name}_final.pth"
+    return None, None
+
+stgcn_ckpt, stgcn_loaded_name = resolve_checkpoint("stgcn")
+bigru_ckpt, bigru_loaded_name = resolve_checkpoint("bigru")
+convnext_ckpt, convnext_loaded_name = resolve_checkpoint("convnext")
 
 # Load models and check if they exist
-stgcn_ok = os.path.exists(stgcn_ckpt)
-bigru_ok = os.path.exists(bigru_ckpt)
-convnext_ok = os.path.exists(convnext_ckpt)
+stgcn_ok = stgcn_ckpt is not None
+bigru_ok = bigru_ckpt is not None
+convnext_ok = convnext_ckpt is not None
 
 st.sidebar.markdown("#### Model Status:")
-st.sidebar.info(f"ST-GCN Checkpoint: {'🟢 Loaded' if stgcn_ok else '🔴 Not Found (using dummy weights)'}")
-st.sidebar.info(f"Bi-GRU Checkpoint: {'🟢 Loaded' if bigru_ok else '🔴 Not Found (using dummy weights)'}")
-st.sidebar.info(f"ConvNeXt1D Checkpoint: {'🟢 Loaded' if convnext_ok else '🔴 Not Found (using dummy weights)'}")
+if stgcn_ok:
+    st.sidebar.success(f"ST-GCN Checkpoint: 🟢 Loaded (`{stgcn_loaded_name}`)")
+else:
+    st.sidebar.error("ST-GCN Checkpoint: 🔴 Not Found (using dummy weights)")
+    
+if bigru_ok:
+    st.sidebar.success(f"Bi-GRU Checkpoint: 🟢 Loaded (`{bigru_loaded_name}`)")
+else:
+    st.sidebar.error("Bi-GRU Checkpoint: 🔴 Not Found (using dummy weights)")
+
+if convnext_ok:
+    st.sidebar.success(f"ConvNeXt1D Checkpoint: 🟢 Loaded (`{convnext_loaded_name}`)")
+else:
+    st.sidebar.error("ConvNeXt1D Checkpoint: 🔴 Not Found (using dummy weights)")
 
 if not (stgcn_ok and bigru_ok and convnext_ok):
     st.sidebar.warning("Some models are missing trained weights. Running with randomly initialized models for preview/demonstration. Please train models first using training scripts.")
