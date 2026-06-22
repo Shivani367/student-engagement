@@ -1,3 +1,14 @@
+---
+title: Online Student Engagement Detector
+emoji: 🎓
+colorFrom: indigo
+colorTo: blue
+sdk: streamlit
+sdk_version: 1.35.0
+app_file: app/app.py
+pinned: false
+---
+
 # Online Student Engagement Detection
 
 An end-to-end deep learning framework designed to predict student engagement levels in online learning environments using facial landmark sequences extracted from the **DAiSEE** dataset.
