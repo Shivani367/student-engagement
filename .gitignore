@@ -8,3 +8,4 @@ __pycache__/
 *.pth
 *.npy
 evaluation_results/
+*.zip

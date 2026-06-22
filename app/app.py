@@ -159,11 +159,29 @@ uploaded_file = st.sidebar.file_uploader(
 st.sidebar.markdown("### ⚙️ Model Setup")
 # Paths to checkpoints (relative to project root for robustness)
 checkpoint_dir = Path(project_root) / "checkpoints"
+GITHUB_RAW_URL = "https://github.com/Shivani367/student-engagement/raw/model-checkpoints/checkpoints"
+
+def download_file(url, dest):
+    import urllib.request
+    dest_path = Path(dest)
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+    if not dest_path.exists():
+        with st.spinner(f"Downloading model checkpoint from GitHub: {dest_path.name}..."):
+            try:
+                urllib.request.urlretrieve(url, dest)
+                st.toast(f"Downloaded {dest_path.name} successfully!")
+            except Exception as e:
+                st.error(f"Failed to download checkpoint {dest_path.name}: {e}")
 
 def resolve_checkpoint(name):
     # Try best first, then final
     best_path = checkpoint_dir / f"{name}_best.pth"
     final_path = checkpoint_dir / f"{name}_final.pth"
+    
+    # Download final checkpoint from GitHub if neither exists
+    if not best_path.exists() and not final_path.exists():
+        url = f"{GITHUB_RAW_URL}/{name}_final.pth"
+        download_file(url, final_path)
     
     if best_path.exists():
         return str(best_path), f"{name}_best.pth"
