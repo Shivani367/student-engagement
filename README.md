@@ -7,7 +7,7 @@ sdk: streamlit
 sdk_version: 1.35.0
 app_file: app/app.py
 pinned: false
-python_version: 3.10
+python_version: "3.10"
 ---
 
 # Online Student Engagement Detection
